@@ -4,6 +4,10 @@ try:
 except:
     pass
 
+def normalize_mnc(mnc):
+    """Normalize MNC to zero-padded 2-digit string. Handles int 7, str '7', or str '07'."""
+    return str(mnc).zfill(2)
+
 def change_switch(switch,parameter_class,config_value,Target_Value):
     if str(config_value).isdigit():
         config_string = parameter_class.toString(int(config_value))
@@ -714,20 +718,20 @@ def nr_cell_expansion(nr_plan_cell):
     nr_trackingarea_id=3
     nr_operator=2
     customer = "TELECOM"
-    if region=="AMBA" and nr_plan_cell.attr("MNC")=="07":
+    if region=="AMBA" and normalize_mnc(nr_plan_cell.attr("MNC"))=="07":
         customer = "TELEFONICA"
         basen = 12
         nr_trackingarea_id = 3
         nr_operator = 2
-    elif region=="SUR" and nr_plan_cell.attr("MNC")=="34":
+    elif region=="SUR" and normalize_mnc(nr_plan_cell.attr("MNC"))=="34":
         basen = 12
         nr_trackingarea_id = 3
         nr_operator = 2
-    elif region=="AMBA" and nr_plan_cell.attr("MNC")=="34":
+    elif region=="AMBA" and normalize_mnc(nr_plan_cell.attr("MNC"))=="34":
         basen = 10
         nr_trackingarea_id = 0
         nr_operator = 0
-    elif region=="SUR" and nr_plan_cell.attr("MNC")=="07":
+    elif region=="SUR" and normalize_mnc(nr_plan_cell.attr("MNC"))=="07":
         customer = "TELEFONICA"
         nr_trackingarea_id = 0
         nr_operator = 0
@@ -814,6 +818,51 @@ def nr_cell_expansion(nr_plan_cell):
     else:
         bts_obj.mod_moc("NRDUCellOp", MOD(OperatorId=nr_operator, CellId=nrcellid).WHERE(NrDuCellId=nrcellid),is_new=True)
 
+def _configure_nr_neighbors(cell_list, lte_cell_list, mnc, dl_arfcn, relation_mnc, shared_mnc=None):
+    """Configure NrExternalCell, NrNRelationship, NrNFreq, and NRCellRelation for one operator's NR cells.
+
+    shared_mnc: if provided, also creates NrExternalCellPlmn with this as the shared operator MNC.
+    relation_mnc: MNC for NRCellRelation (cross-operator relations use the peer's MNC).
+    """
+    for nrducellid, physicalcellid, ssbfreqpos in cell_list:
+        bts_obj.add_moc("NrExternalCell", Mcc="722", Mnc=mnc, GnodebId=gnodebid, CellId=nrducellid,
+                        DlArfcn=dl_arfcn, UlArfcnConfigInd="NOT_CFG", PhyCellId=physicalcellid,
+                        Tac=tacnr, AggregationAttribute=1, MasterPlmnReservedFlag="FALSE",
+                        NrNetworkingOption="NSA", FrequencyBand=78, AdditionalFrequencyBand="NULL")
+        if shared_mnc is not None:
+            bts_obj.add_moc("NrExternalCellPlmn", Mcc="722", Mnc=mnc, GnodebId=gnodebid, CellId=nrducellid,
+                            SharedMcc="722", SharedMnc=shared_mnc, NrNetworkingOption=2, Tac=4294967295,
+                            SharedPlmnGnodebId=gnodebid, SharedPlmnCellId=nrducellid)
+        for ltecellid in lte_cell_list:
+            if [ltecellid, gnodebid, nrducellid] not in configure_nrnrelationship_list:
+                bts_obj.add_moc("NrNRelationship", LocalCellId=ltecellid, Mcc="722", Mnc=mnc,
+                                GnodebId=gnodebid, CellId=nrducellid, BlindConfigIndicator="FALSE",
+                                AggregationAttribute="CONTROL_MODE_FLAG-1&NO_REMOVE_FLAG-1&NO_HO_FLAG-0&CO_DEPLOYMENT_NSA_FLAG-0",
+                                NCellAdditionTime="2024-01-01")
+                configure_nrnrelationship_list.append([ltecellid, gnodebid, nrducellid])
+            if [ltecellid, int(ssbfreqpos)] not in configure_nrnfreq_list:
+                bts_obj.add_moc("NrNFreq", LocalCellId=ltecellid, DlArfcn=int(ssbfreqpos),
+                                UlArfcnConfigInd="NOT_CFG", ConnFreqPriority="0", FreqSpecificOffset="0",
+                                MinRxLevel="-68", NrFreqHighPriReselThld="6", NrFreqLowPriReselThld="6",
+                                NrFreqReselPriority="1", SsbOffset="0", SsbMeasurementDuration="5MS",
+                                SsbPeriod="20MS", SubcarrierSpacing="30KHZ", AggregationAttribute=11,
+                                MaxAllowedTxPower="23", RsQltyThldForCellQltyCalc="-86",
+                                MaxRsQtyForCellQltyCalc="16", NrFreqHighPriReselThldRsrq="255",
+                                NrFreqLowPriReselThldRsrq="255", NrFreqReselSubPriority="ZERO",
+                                VonrPriority="1")
+                configure_nrnfreq_list.append([ltecellid, int(ssbfreqpos)])
+        for nrducellid2, physicalcellid2, ssbfreqpos2 in cell_list:
+            if nrducellid == nrducellid2:
+                continue
+            if [nrducellid, gnodebid, nrducellid2] in nrcellrelation_list:
+                continue
+            bts_obj.add_moc("NRCellRelation", NrCellId=nrducellid, Mcc="722", Mnc=relation_mnc,
+                            gNBId=gnodebid, CellId=nrducellid2, CellIndividualOffset=15,
+                            BlindScellConfigFlag=0, NoHoFlag=0, NoRmvFlag=1, NCellReselOffset=15,
+                            NCellClassLabel=0, BlindHoFlag=0, PowerSavingCellFlag=0, MlbHoFlag=0,
+                            InterGnodebFlag=0, InterGnodebSulFlag=0, HighSpeedIntrfAvoidFlag=0)
+            nrcellrelation_list.append([nrducellid, gnodebid, nrducellid2])
+
 bts_obj = BTSObject()
 
 site_list_filename = u'*Argentina_TA_5G*'
@@ -878,13 +927,13 @@ tp_tac_nb=""
 
 if cell_plan_info_list:
     for cell_plan in cell_plan_info_list:
-        if cell_plan.attr("RAT")=="4G" and cell_plan.attr("MNC")=="07" and cell_plan.attr("Cell Type")=="FDD":
+        if cell_plan.attr("RAT")=="4G" and normalize_mnc(cell_plan.attr("MNC"))=="07" and cell_plan.attr("Cell Type")=="FDD":
             tlf_tac=int(cell_plan.attr("LAC/TAC"))
-        if cell_plan.attr("RAT") == "4G" and cell_plan.attr("MNC") == "34" and cell_plan.attr("Cell Type")=="FDD":
+        if cell_plan.attr("RAT") == "4G" and normalize_mnc(cell_plan.attr("MNC")) == "34" and cell_plan.attr("Cell Type")=="FDD":
             tp_tac = int(cell_plan.attr("LAC/TAC"))
-        if  cell_plan.attr("RAT")=="5G" and cell_plan.attr("MNC")=="07" and cell_plan.attr("Cell Type")=="TDD":
+        if  cell_plan.attr("RAT")=="5G" and normalize_mnc(cell_plan.attr("MNC"))=="07" and cell_plan.attr("Cell Type")=="TDD":
             mvs_tacnr=int(cell_plan.attr("LAC/TAC"))
-        if cell_plan.attr("RAT") == "5G" and cell_plan.attr("MNC") == "34" and cell_plan.attr("Cell Type")=="TDD":
+        if cell_plan.attr("RAT") == "5G" and normalize_mnc(cell_plan.attr("MNC")) == "34" and cell_plan.attr("Cell Type")=="TDD":
             tp_tacnr = int(cell_plan.attr("LAC/TAC"))
 
 exist_nr_cell = bts_obj.get_para_list_from_moc("NRDUCell","NrDuCellId")
@@ -1090,13 +1139,13 @@ for nr_plan_cell in cell_plan_info_list:
     nr_trackingarea_id = 3
     nr_operator = 2
     customer = "TELECOM"
-    if nr_plan_cell.attr("MNC") == "07":
+    if normalize_mnc(nr_plan_cell.attr("MNC")) == "07":
         customer = "TELEFONICA"
         basen = 12
         nr_trackingarea_id = 3
         nr_operator = 2
         mvs_newnr_celllist.append([nrcellid,int(pci),int(SsbNarFcn)])
-    elif nr_plan_cell.attr("MNC") == "34":
+    elif normalize_mnc(nr_plan_cell.attr("MNC")) == "34":
         basen = 10
         nr_trackingarea_id = 0
         nr_operator = 0
@@ -1214,140 +1263,16 @@ elif region == "SUR":
         if cell not in nb_cell_list:
             mvs_lte_cell_list.append(cell)
 
-if region=="AMBA":
-    for nrducellid,physicalcellid,ssbfreqpos in tp_newnr_celllist:
-        bts_obj.add_moc("NrExternalCell", Mcc="722", Mnc="34", GnodebId=gnodebid, CellId=nrducellid, DlArfcn="629280", UlArfcnConfigInd="NOT_CFG", PhyCellId=physicalcellid, Tac=tacnr, AggregationAttribute=1, MasterPlmnReservedFlag="FALSE", NrNetworkingOption="NSA",FrequencyBand=78,AdditionalFrequencyBand="NULL")
-        for ltecellid in tp_lte_cell_list:
-            if [ltecellid,gnodebid,nrducellid] not in configure_nrnrelationship_list:
-                bts_obj.add_moc("NrNRelationship", LocalCellId=ltecellid, Mcc="722", Mnc="34", GnodebId=gnodebid,
-                                CellId=nrducellid, BlindConfigIndicator="FALSE",
-                                AggregationAttribute="CONTROL_MODE_FLAG-1&NO_REMOVE_FLAG-1&NO_HO_FLAG-0&CO_DEPLOYMENT_NSA_FLAG-0",
-                                NCellAdditionTime="2024-01-01")
-                configure_nrnrelationship_list.append([ltecellid,gnodebid,nrducellid])
-            if [ltecellid,int(ssbfreqpos)] not in configure_nrnfreq_list:
-                bts_obj.add_moc("NrNFreq", LocalCellId=ltecellid, DlArfcn=int(ssbfreqpos), UlArfcnConfigInd="NOT_CFG",
-                                ConnFreqPriority="0", FreqSpecificOffset="0", MinRxLevel="-68", NrFreqHighPriReselThld="6",
-                                NrFreqLowPriReselThld="6", NrFreqReselPriority="1", SsbOffset="0",
-                                SsbMeasurementDuration="5MS",
-                                SsbPeriod="20MS", SubcarrierSpacing="30KHZ",
-                                AggregationAttribute=11,
-                                MaxAllowedTxPower="23", RsQltyThldForCellQltyCalc="-86", MaxRsQtyForCellQltyCalc="16",
-                                NrFreqHighPriReselThldRsrq="255", NrFreqLowPriReselThldRsrq="255",
-                                NrFreqReselSubPriority="ZERO", VonrPriority="1")
-                configure_nrnfreq_list.append([ltecellid,int(ssbfreqpos)])
-
-        # NRCELLRELATION
-        for nrducellid2,physicalcellid2,ssbfreqpos2 in tp_newnr_celllist:
-            if nrducellid == nrducellid2: continue
-            if [nrducellid,gnodebid, nrducellid2] in nrcellrelation_list:continue
-            bts_obj.add_moc("NRCellRelation",NrCellId=nrducellid,Mcc="722",Mnc="34",gNBId=gnodebid,CellId=nrducellid2,CellIndividualOffset=15,BlindScellConfigFlag=0,
-                            NoHoFlag=0,NoRmvFlag=1,NCellReselOffset=15,NCellClassLabel=0,BlindHoFlag=0,PowerSavingCellFlag=0,MlbHoFlag=0,InterGnodebFlag=0,
-                            InterGnodebSulFlag=0,HighSpeedIntrfAvoidFlag=0)
-            nrcellrelation_list.append([nrducellid,gnodebid, nrducellid2])
-    for nrducellid, physicalcellid, ssbfreqpos in mvs_newnr_celllist:
-        bts_obj.add_moc("NrExternalCell", Mcc="722", Mnc="34", GnodebId=gnodebid, CellId=nrducellid, DlArfcn="637440",
-                        UlArfcnConfigInd="NOT_CFG", PhyCellId=physicalcellid, Tac=tacnr, AggregationAttribute=1,
-                        MasterPlmnReservedFlag="FALSE", NrNetworkingOption="NSA", FrequencyBand=78,
-                        AdditionalFrequencyBand="NULL")
-        bts_obj.add_moc("NrExternalCellPlmn", Mcc="722", Mnc="34", GnodebId=gnodebid, CellId=nrducellid, SharedMcc="722",SharedMnc="07",NrNetworkingOption=2,Tac=4294967295,SharedPlmnGnodebId=gnodebid,SharedPlmnCellId=nrducellid)
-        for ltecellid in mvs_lte_cell_list:
-            if [ltecellid, gnodebid, nrducellid] not in configure_nrnrelationship_list:
-                bts_obj.add_moc("NrNRelationship", LocalCellId=ltecellid, Mcc="722", Mnc="34", GnodebId=gnodebid,
-                                CellId=nrducellid, BlindConfigIndicator="FALSE",
-                                AggregationAttribute="CONTROL_MODE_FLAG-1&NO_REMOVE_FLAG-1&NO_HO_FLAG-0&CO_DEPLOYMENT_NSA_FLAG-0",
-                                NCellAdditionTime="2024-01-01")
-                configure_nrnrelationship_list.append([ltecellid, gnodebid, nrducellid])
-            if [ltecellid, int(ssbfreqpos)] not in configure_nrnfreq_list:
-                bts_obj.add_moc("NrNFreq", LocalCellId=ltecellid, DlArfcn=int(ssbfreqpos), UlArfcnConfigInd="NOT_CFG",
-                                ConnFreqPriority="0", FreqSpecificOffset="0", MinRxLevel="-68",
-                                NrFreqHighPriReselThld="6",
-                                NrFreqLowPriReselThld="6", NrFreqReselPriority="1", SsbOffset="0",
-                                SsbMeasurementDuration="5MS",
-                                SsbPeriod="20MS", SubcarrierSpacing="30KHZ",
-                                AggregationAttribute=11,
-                                MaxAllowedTxPower="23", RsQltyThldForCellQltyCalc="-86", MaxRsQtyForCellQltyCalc="16",
-                                NrFreqHighPriReselThldRsrq="255", NrFreqLowPriReselThldRsrq="255",
-                                NrFreqReselSubPriority="ZERO", VonrPriority="1")
-                configure_nrnfreq_list.append([ltecellid, int(ssbfreqpos)])
-
-        # NRCELLRELATION
-        for nrducellid2, physicalcellid2, ssbfreqpos2 in mvs_newnr_celllist:
-            if nrducellid == nrducellid2: continue
-            if [nrducellid, gnodebid, nrducellid2] in nrcellrelation_list: continue
-            bts_obj.add_moc("NRCellRelation", NrCellId=nrducellid, Mcc="722", Mnc="07", gNBId=gnodebid, CellId=nrducellid2,
-                            CellIndividualOffset=15, BlindScellConfigFlag=0,
-                            NoHoFlag=0, NoRmvFlag=1, NCellReselOffset=15, NCellClassLabel=0, BlindHoFlag=0,
-                            PowerSavingCellFlag=0, MlbHoFlag=0, InterGnodebFlag=0,
-                            InterGnodebSulFlag=0, HighSpeedIntrfAvoidFlag=0)
-            nrcellrelation_list.append([nrducellid, gnodebid, nrducellid2])
-elif region=="SUR":
-    for nrducellid,physicalcellid,ssbfreqpos in tp_newnr_celllist:
-        bts_obj.add_moc("NrExternalCell", Mcc="722", Mnc="07", GnodebId=gnodebid, CellId=nrducellid, DlArfcn="629280", UlArfcnConfigInd="NOT_CFG", PhyCellId=physicalcellid, Tac=tacnr, AggregationAttribute=1, MasterPlmnReservedFlag="FALSE", NrNetworkingOption="NSA",FrequencyBand=78,AdditionalFrequencyBand="NULL")
-        bts_obj.add_moc("NrExternalCellPlmn", Mcc="722", Mnc="07", GnodebId=gnodebid, CellId=nrducellid,
-                        SharedMcc="722", SharedMnc="34", NrNetworkingOption=2, Tac=4294967295,
-                        SharedPlmnGnodebId=gnodebid, SharedPlmnCellId=nrducellid)
-        for ltecellid in tp_lte_cell_list:
-            if [ltecellid,gnodebid,nrducellid] not in configure_nrnrelationship_list:
-                bts_obj.add_moc("NrNRelationship", LocalCellId=ltecellid, Mcc="722", Mnc="07", GnodebId=gnodebid,
-                                CellId=nrducellid, BlindConfigIndicator="FALSE",
-                                AggregationAttribute="CONTROL_MODE_FLAG-1&NO_REMOVE_FLAG-1&NO_HO_FLAG-0&CO_DEPLOYMENT_NSA_FLAG-0",
-                                NCellAdditionTime="2024-01-01")
-                configure_nrnrelationship_list.append([ltecellid,gnodebid,nrducellid])
-            if [ltecellid,int(ssbfreqpos)] not in configure_nrnfreq_list:
-                bts_obj.add_moc("NrNFreq", LocalCellId=ltecellid, DlArfcn=int(ssbfreqpos), UlArfcnConfigInd="NOT_CFG",
-                                ConnFreqPriority="0", FreqSpecificOffset="0", MinRxLevel="-68", NrFreqHighPriReselThld="6",
-                                NrFreqLowPriReselThld="6", NrFreqReselPriority="1", SsbOffset="0",
-                                SsbMeasurementDuration="5MS",
-                                SsbPeriod="20MS", SubcarrierSpacing="30KHZ",
-                                AggregationAttribute=11,
-                                MaxAllowedTxPower="23", RsQltyThldForCellQltyCalc="-86", MaxRsQtyForCellQltyCalc="16",
-                                NrFreqHighPriReselThldRsrq="255", NrFreqLowPriReselThldRsrq="255",
-                                NrFreqReselSubPriority="ZERO", VonrPriority="1")
-                configure_nrnfreq_list.append([ltecellid,int(ssbfreqpos)])
-
-        # NRCELLRELATION
-        for nrducellid2,physicalcellid2,ssbfreqpos2 in tp_newnr_celllist:
-            if nrducellid == nrducellid2: continue
-            if [nrducellid,gnodebid, nrducellid2] in nrcellrelation_list:continue
-            bts_obj.add_moc("NRCellRelation",NrCellId=nrducellid,Mcc="722",Mnc="34",gNBId=gnodebid,CellId=nrducellid2,CellIndividualOffset=15,BlindScellConfigFlag=0,
-                            NoHoFlag=0,NoRmvFlag=1,NCellReselOffset=15,NCellClassLabel=0,BlindHoFlag=0,PowerSavingCellFlag=0,MlbHoFlag=0,InterGnodebFlag=0,
-                            InterGnodebSulFlag=0,HighSpeedIntrfAvoidFlag=0)
-            nrcellrelation_list.append([nrducellid,gnodebid, nrducellid2])
-    for nrducellid, physicalcellid, ssbfreqpos in mvs_newnr_celllist:
-        bts_obj.add_moc("NrExternalCell", Mcc="722", Mnc="07", GnodebId=gnodebid, CellId=nrducellid, DlArfcn="637440",
-                        UlArfcnConfigInd="NOT_CFG", PhyCellId=physicalcellid, Tac=tacnr, AggregationAttribute=1,
-                        MasterPlmnReservedFlag="FALSE", NrNetworkingOption="NSA", FrequencyBand=78,
-                        AdditionalFrequencyBand="NULL")
-        for ltecellid in mvs_lte_cell_list:
-            if [ltecellid, gnodebid, nrducellid] not in configure_nrnrelationship_list:
-                bts_obj.add_moc("NrNRelationship", LocalCellId=ltecellid, Mcc="722", Mnc="07", GnodebId=gnodebid,
-                                CellId=nrducellid, BlindConfigIndicator="FALSE",
-                                AggregationAttribute="CONTROL_MODE_FLAG-1&NO_REMOVE_FLAG-1&NO_HO_FLAG-0&CO_DEPLOYMENT_NSA_FLAG-0",
-                                NCellAdditionTime="2024-01-01")
-                configure_nrnrelationship_list.append([ltecellid, gnodebid, nrducellid])
-            if [ltecellid, int(ssbfreqpos)] not in configure_nrnfreq_list:
-                bts_obj.add_moc("NrNFreq", LocalCellId=ltecellid, DlArfcn=int(ssbfreqpos), UlArfcnConfigInd="NOT_CFG",
-                                ConnFreqPriority="0", FreqSpecificOffset="0", MinRxLevel="-68",
-                                NrFreqHighPriReselThld="6",
-                                NrFreqLowPriReselThld="6", NrFreqReselPriority="1", SsbOffset="0",
-                                SsbMeasurementDuration="5MS",
-                                SsbPeriod="20MS", SubcarrierSpacing="30KHZ",
-                                AggregationAttribute=11,
-                                MaxAllowedTxPower="23", RsQltyThldForCellQltyCalc="-86", MaxRsQtyForCellQltyCalc="16",
-                                NrFreqHighPriReselThldRsrq="255", NrFreqLowPriReselThldRsrq="255",
-                                NrFreqReselSubPriority="ZERO", VonrPriority="1")
-                configure_nrnfreq_list.append([ltecellid, int(ssbfreqpos)])
-
-        # NRCELLRELATION
-        for nrducellid2, physicalcellid2, ssbfreqpos2 in mvs_newnr_celllist:
-            if nrducellid == nrducellid2: continue
-            if [nrducellid, gnodebid, nrducellid2] in nrcellrelation_list: continue
-            bts_obj.add_moc("NRCellRelation", NrCellId=nrducellid, Mcc="722", Mnc="07", gNBId=gnodebid, CellId=nrducellid2,
-                            CellIndividualOffset=15, BlindScellConfigFlag=0,
-                            NoHoFlag=0, NoRmvFlag=1, NCellReselOffset=15, NCellClassLabel=0, BlindHoFlag=0,
-                            PowerSavingCellFlag=0, MlbHoFlag=0, InterGnodebFlag=0,
-                            InterGnodebSulFlag=0, HighSpeedIntrfAvoidFlag=0)
-            nrcellrelation_list.append([nrducellid, gnodebid, nrducellid2])
+if region == "AMBA":
+    # PERSONAL (tp, MNC=34, ARFCN=629280) — no shared PLMN entry
+    _configure_nr_neighbors(tp_newnr_celllist,  tp_lte_cell_list,  mnc="34", dl_arfcn="629280", relation_mnc="34")
+    # TELEFONICA (mvs, MNC=34, ARFCN=637440) — shares PLMN with MNC=07
+    _configure_nr_neighbors(mvs_newnr_celllist, mvs_lte_cell_list, mnc="34", dl_arfcn="637440", relation_mnc="07", shared_mnc="07")
+elif region == "SUR":
+    # TELEFONICA (tp, MNC=07, ARFCN=629280) — shares PLMN with MNC=34
+    _configure_nr_neighbors(tp_newnr_celllist,  tp_lte_cell_list,  mnc="07", dl_arfcn="629280", relation_mnc="34", shared_mnc="34")
+    # PERSONAL (mvs, MNC=07, ARFCN=637440) — no shared PLMN entry
+    _configure_nr_neighbors(mvs_newnr_celllist, mvs_lte_cell_list, mnc="07", dl_arfcn="637440", relation_mnc="07")
 mfbifreq_list = bts_obj.get_para_list_from_moc("NrMfbiFreq","DlArfcn")
 if "629280" not in mfbifreq_list and 629280 not in mfbifreq_list:
     bts_obj.add_moc("NrMfbiFreq",DlArfcn="629280",FrequencyBand=78,AdditionalFrequencyBand=0,objId=0)
