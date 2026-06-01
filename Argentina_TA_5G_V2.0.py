@@ -978,15 +978,7 @@ for nr_plan_cell in cell_plan_info_list:
     else:
         subok = "error"
     power = nr_plan_cell.attr("Pilot Power(dBm)")
-    if power.isdigit():
-        powerok = int(power)
-    else:
-        powerok = int(power.split("m")[0])
-    # power = nr_plan_cell.attr("Pilot Power(dBm)")
-    # if power.isdigit():
-    #     powerok = int(float(power) * 10)
-    # else:
-    #     powerok = 369
+    powerok = int(float(power.split("m")[0]))
     SsbDescMethod = "SSB_DESC_TYPE_GSCN"
     SsbFreqPos = nr_plan_cell.attr("SSB Frequency Position")
     SsbNarFcn = nr_plan_cell.attr("SsbNarFcn")
@@ -1040,7 +1032,6 @@ for nr_plan_cell in cell_plan_info_list:
                              NrCellId=nrcellid,
                              CellName=nr_plan_cell.attr("Cell Name"),
                              CellId=nrcellid,
-                             # MaxTransmitPower=cell_excel_row.attr("Max Transmit Power(0.1dBm)"),
                              FrequencyBand=bandaok,
                              DlNarfcn=nr_plan_cell.attr("ARFCN DL"),
                              CpriCompression="3DOT2_COMPRESSION",
@@ -1079,8 +1070,6 @@ for nr_plan_cell in cell_plan_info_list:
     tacnr = nr_plan_cell.attr("LAC/TAC")
     bts_obj.mod_moc("NRDUCellTrp", MOD(PowerConfigMode=2, MaxTransmitPowerMw=powerok).WHERE(NrDuCellId=nrcellid),
                     is_new=True)
-
-    # bts_obj.mod_moc("NRDUCellTrp", MOD(MaxTransmitPower=powerok).WHERE(NrDuCellId=nrcellid))
     bts_obj.mod_moc("NRDUCell", MOD(TrackingAreaId=nr_trackingarea_id).WHERE(NrDuCellId=nrcellid), is_new=True)
     bts_obj.add_moc("NRDUCellTrpBeam", NrDuCellTrpId=ducelltrpid, CoverageScenario="DEFAULT", Tilt=nr_tilt,
                     Azimuth=0, MaxSsbPwrOffset=0, ScenarioBeamAlgoSw=0, ConnModeCoverageScenario="DEFAULT",
