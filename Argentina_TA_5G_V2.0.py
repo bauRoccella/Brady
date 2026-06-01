@@ -1042,9 +1042,7 @@ if bbp_config_list:
                 if bbp_config.attr("NR cell ID"):
                     nrcellid_list = bbp_config.attr("NR cell ID").split(";")
                     for nrcell in nrcellid_list:
-                        bts_obj.mod_moc("NRDUCellTrp",MOD(BasebandEqmId=basebandid_list[i]).WHERE(NrDuCellId=nrcell),is_new=True)
-                        bts_obj.mod_moc("NRDUCellTrp", MOD(BasebandEqmId=basebandid_list[i]).WHERE(NrDuCellId=int(nrcell)),
-                                        is_new=True)
+                        bts_obj.mod_moc("NRDUCellTrp", MOD(BasebandEqmId=basebandid_list[i]).WHERE(NrDuCellId=int(nrcell)), is_new=True)
             else:
                 exit("basebandeqm error")
     if ul_list:
@@ -1074,6 +1072,16 @@ if siteinfo.attr("old LTE CP IP"):
 
 nr_tx_expansion(ipplaninfo)
 
+nr_cell_basen_map = {}
+for bbp_config in (bbp_config_list or []):
+    if not bbp_config.attr("NR cell ID"):
+        continue
+    baseband_type_list = bbp_config.attr("*Baseband Equipment Type").split(";")
+    basebandid_list = [int(x) for x in bbp_config.attr("Baseband equipment ID").split(";")]
+    for i in range(len(baseband_type_list)):
+        if baseband_type_list[i] == "FULL":
+            for nrcell in bbp_config.attr("NR cell ID").split(";"):
+                nr_cell_basen_map[int(nrcell)] = basebandid_list[i]
 
 tp_newnr_celllist=[]
 mvs_newnr_celllist=[]
@@ -1141,15 +1149,16 @@ for nr_plan_cell in cell_plan_info_list:
     customer = "TELECOM"
     if normalize_mnc(nr_plan_cell.attr("MNC")) == "07":
         customer = "TELEFONICA"
-        basen = 12
         nr_trackingarea_id = 3
         nr_operator = 2
         mvs_newnr_celllist.append([nrcellid,int(pci),int(SsbNarFcn)])
     elif normalize_mnc(nr_plan_cell.attr("MNC")) == "34":
-        basen = 10
         nr_trackingarea_id = 0
         nr_operator = 0
         tp_newnr_celllist.append([nrcellid,pci,SsbNarFcn])
+    if nrcellid not in nr_cell_basen_map:
+        exit(f"NR cell {nrcellid} has no Baseband Equipment ID in BBP sheet")
+    basen = nr_cell_basen_map[nrcellid]
 
 
     template_type = "NRCELL"
