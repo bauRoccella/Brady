@@ -1632,11 +1632,5 @@ if 1 not in bts_obj.get_para_list_from_moc("SCTPTEMPLATE", "SCTPTEMPLATEID"):
 if gnodebid:
     bts_obj.mod_moc("IPCLKLNK", MOD(PROFILETYPE="1588V2"))
 
-bts_obj.mod_moc("NRDUCellTrp", MOD(PowerConfigMode="TRANSMIT_POWER_MW").WHERE(NrDuCellId=350))
-bts_obj.mod_moc("NRDUCellTrp", MOD(PowerConfigMode="TRANSMIT_POWER_MW").WHERE(NrDuCellId=351))
-bts_obj.mod_moc("NRDUCellTrp", MOD(PowerConfigMode="TRANSMIT_POWER_MW").WHERE(NrDuCellId=352))
-bts_obj.mod_moc("NRDUCellTrp", MOD(MaxTransmitPowerMw="5000").WHERE(NrDuCellId=350))
-bts_obj.mod_moc("NRDUCellTrp", MOD(MaxTransmitPowerMw="5000").WHERE(NrDuCellId=351))
-bts_obj.mod_moc("NRDUCellTrp", MOD(MaxTransmitPowerMw="5000").WHERE(NrDuCellId=352))
 
 bts_obj.finish()

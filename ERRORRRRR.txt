@@ -1,0 +1,21 @@
+Traceback (most recent call last):
+  File "*/lbin/python/ExecutorBase.py", line 150, in run_script_for_one_ne
+    doc = call_script(script_files, inv, input_dir, _env, **kwargs)
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "*/lbin/python/ExecutorBase.py", line 103, in call_script
+    doc = executor.execute_files(script_files, inv, input_dir, _env, **kwargs)
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "*/262.100.118/rtsp/DeployDevEngine/pyscript/com/huawei/mae/deploy_dev_engine/utils/sysutil.py", line 189, in wrapper
+    result = func(*args, **kwargs)
+             ^^^^^^^^^^^^^^^^^^^^^
+  File "*/262.100.118/rtsp/DeployDevEngine/pyscript/com/huawei/mae/deploy_dev_engine/utils/models/executor.py", line 191, in execute_files
+    executor_loader.execute(file_name, template_context, **kwargs)
+  File "*/262.100.118/rtsp/DeployDevEngine/pyscript/com/huawei/mae/deploy_dev_engine/utils/sysutil.py", line 189, in wrapper
+    result = func(*args, **kwargs)
+             ^^^^^^^^^^^^^^^^^^^^^
+  File "*/262.100.118/rtsp/DeployDevEngine/pyscript/com/huawei/mae/deploy_dev_engine/utils/models/executor.py", line 175, in execute
+    sysutil.builtins_exec(compile(fp.read(), filename, 'exec', ), template_context, template_context)
+  File "*/workDir/ScriptExecute/67099/scriptFile/Argentina_TA_5G_V2.0.py", line 1095, in <module>
+    if mnc == "07":
+       ^^^
+NameError: name 'mnc' is not defined
