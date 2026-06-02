@@ -1032,6 +1032,7 @@ tp_newnr_celllist=[]
 mvs_newnr_celllist=[]
 for nr_plan_cell in cell_plan_info_list:
     if nr_plan_cell.attr("RAT")!="5G":continue
+    mnc = str(nr_plan_cell.attr("MNC")).zfill(2)
     banda = nr_plan_cell.attr("Frequency Band")
     if banda == "78":
         bandaok = "N78"
