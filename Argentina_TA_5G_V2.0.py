@@ -1245,14 +1245,8 @@ new_nr_name = siteinfo.attr("*gNodeB Name")
 if new_nr_name:
     bts_obj.mod_moc("gNodeBFunction", MOD(gNodeBFunctionName=new_nr_name, ApplicationRef=4))
 bts_obj.mod_moc("TASM", MOD(SRCNO=0, CLKSRC=0, CLKSYNCMODE=1),is_new=True)
-if not bts_obj.get_para_list_from_moc("NCellPlmnList","Mcc",WHERE(Mnc="34")):
-    bts_obj.add_moc("NCellPlmnList",Mcc="722",Mnc="34",RatType=3,PlmnListType=2,gNBIdLength=22)
-else:
-    bts_obj.mod_moc("NCellPlmnList", MOD(Mcc=722, Mnc="34", RatType=3, PlmnListType=2, gNBIdLength=22).WHERE(Mnc="34"),is_new=True)
-if not bts_obj.get_para_list_from_moc("NCellPlmnList","Mcc",WHERE(Mnc="07")):
-    bts_obj.add_moc("NCellPlmnList",Mcc="722",Mnc="07",RatType=3,PlmnListType=2,gNBIdLength=22)
-else:
-    bts_obj.mod_moc("NCellPlmnList", MOD(Mcc=722, Mnc="07", RatType=3, PlmnListType=2, gNBIdLength=22).WHERE(Mnc="07"),is_new=True)
+bts_obj.mod_moc("NCellPlmnList", MOD(Mcc=722, Mnc="34", RatType=3, PlmnListType=2, gNBIdLength=22).WHERE(Mnc="34"), is_new=True)
+bts_obj.mod_moc("NCellPlmnList", MOD(Mcc=722, Mnc="07", RatType=3, PlmnListType=2, gNBIdLength=22).WHERE(Mnc="07"), is_new=True)
 
 if not bts_obj.get_para_list_from_moc("RlcPdcpParaGroup","RlcPdcpParaGroupId",WHERE(RlcPdcpParaGroupId=208)):
     bts_obj.add_moc("RlcPdcpParaGroup",RlcPdcpParaGroupId=208,RlcMode=1,RlcParaAdaptSwitch=1,UlDlDiscardtimerSwitch=0,AmPdcpSnSize="AmPdcpSnsize_18bits")
@@ -1401,9 +1395,5 @@ if 1 not in bts_obj.get_para_list_from_moc("SCTPTEMPLATE", "SCTPTEMPLATEID"):
     bts_obj.add_moc("SCTPTEMPLATE", SCTPTEMPLATEID=1)
 if gnodebid:
     bts_obj.mod_moc("IPCLKLNK", MOD(PROFILETYPE="1588V2"))
-
-bts_obj.mod_moc("NRDUCellTrp", MOD(PowerConfigMode="TRANSMIT_POWER_MW").WHERE(NrDuCellId=350))
-bts_obj.mod_moc("NRDUCellTrp", MOD(PowerConfigMode="TRANSMIT_POWER_MW").WHERE(NrDuCellId=351))
-bts_obj.mod_moc("NRDUCellTrp", MOD(PowerConfigMode="TRANSMIT_POWER_MW").WHERE(NrDuCellId=352))
 
 bts_obj.finish()
