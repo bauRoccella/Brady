@@ -664,6 +664,7 @@ def create_5g_hw():
     # bts_obj.mod_moc("TASM", MOD(MODE="AUTO", CLKSYNCMODE="TIME"), is_new=True)
 
 def nr_cell_expansion(nr_plan_cell):
+    mnc = str(nr_plan_cell.attr("MNC")).zfill(2)
     banda = nr_plan_cell.attr("Frequency Band")
     if banda == "78":
         bandaok = "N78"
@@ -714,20 +715,20 @@ def nr_cell_expansion(nr_plan_cell):
     nr_trackingarea_id=3
     nr_operator=2
     customer = "TELECOM"
-    if region=="AMBA" and nr_plan_cell.attr("MNC")=="07":
+    if region=="AMBA" and mnc=="07":
         customer = "TELEFONICA"
         basen = 12
         nr_trackingarea_id = 3
         nr_operator = 2
-    elif region=="SUR" and nr_plan_cell.attr("MNC")=="34":
+    elif region=="SUR" and mnc=="34":
         basen = 12
         nr_trackingarea_id = 3
         nr_operator = 2
-    elif region=="AMBA" and nr_plan_cell.attr("MNC")=="34":
+    elif region=="AMBA" and mnc=="34":
         basen = 10
         nr_trackingarea_id = 0
         nr_operator = 0
-    elif region=="SUR" and nr_plan_cell.attr("MNC")=="07":
+    elif region=="SUR" and mnc=="07":
         customer = "TELEFONICA"
         nr_trackingarea_id = 0
         nr_operator = 0
@@ -878,13 +879,14 @@ tp_tac_nb=""
 
 if cell_plan_info_list:
     for cell_plan in cell_plan_info_list:
-        if cell_plan.attr("RAT")=="4G" and cell_plan.attr("MNC")=="07" and cell_plan.attr("Cell Type")=="FDD":
+        cp_mnc = str(cell_plan.attr("MNC")).zfill(2)
+        if cell_plan.attr("RAT")=="4G" and cp_mnc=="07" and cell_plan.attr("Cell Type")=="FDD":
             tlf_tac=int(cell_plan.attr("LAC/TAC"))
-        if cell_plan.attr("RAT") == "4G" and cell_plan.attr("MNC") == "34" and cell_plan.attr("Cell Type")=="FDD":
+        if cell_plan.attr("RAT") == "4G" and cp_mnc == "34" and cell_plan.attr("Cell Type")=="FDD":
             tp_tac = int(cell_plan.attr("LAC/TAC"))
-        if  cell_plan.attr("RAT")=="5G" and cell_plan.attr("MNC")=="07" and cell_plan.attr("Cell Type")=="TDD":
+        if  cell_plan.attr("RAT")=="5G" and cp_mnc=="07" and cell_plan.attr("Cell Type")=="TDD":
             mvs_tacnr=int(cell_plan.attr("LAC/TAC"))
-        if cell_plan.attr("RAT") == "5G" and cell_plan.attr("MNC") == "34" and cell_plan.attr("Cell Type")=="TDD":
+        if cell_plan.attr("RAT") == "5G" and cp_mnc == "34" and cell_plan.attr("Cell Type")=="TDD":
             tp_tacnr = int(cell_plan.attr("LAC/TAC"))
 
 exist_nr_cell = bts_obj.get_para_list_from_moc("NRDUCell","NrDuCellId")
@@ -1090,13 +1092,13 @@ for nr_plan_cell in cell_plan_info_list:
     nr_trackingarea_id = 3
     nr_operator = 2
     customer = "TELECOM"
-    if nr_plan_cell.attr("MNC") == "07":
+    if mnc == "07":
         customer = "TELEFONICA"
         basen = 12
         nr_trackingarea_id = 3
         nr_operator = 2
         mvs_newnr_celllist.append([nrcellid,int(pci),int(SsbNarFcn)])
-    elif nr_plan_cell.attr("MNC") == "34":
+    elif mnc == "34":
         basen = 10
         nr_trackingarea_id = 0
         nr_operator = 0
